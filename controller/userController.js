@@ -6,6 +6,7 @@ const sendOTP = require('../helper/otp_sender')
 const { validationResult } = require('express-validator')
 const randomString = require('randomstring')
 const jwt = require('jsonwebtoken')
+const oneMinuteExpiry = require('../helper/oneMinuteExpiry')
 
 let smsOTP_send = async (mobile_number, response, msg) => {
     try {
@@ -109,15 +110,43 @@ const userVerify_resend_otp = async (req, res) => {
                 user_verify_resend_otp_notExist_msg: 'Mobile Number already registered'
             })
         }
+
         let response = async () => {
             await res.status(200).json({
                 success: true,
                 user_verify_resend_otp_success_msg: 'Verification OTP Sended Successfully! Please Check',
             })
         }
+
         let otp = Math.floor((Math.random() * 9000) + 1000)
         const msg = `Hello Dear Welcome To Earning Planer, Your OTP Is ${otp}`
-        await otp_data.findOneAndUpdate({ mobile_number }, { otp }, { upsert: true }, { new: true })
+
+        let oldOtpData = await otp_data.findOne({ mobile_number })
+
+        setTimeout(async () => {
+            await otp_data.deleteMany({ mobile_number })
+        }, 2000 * 30);
+
+        if (oldOtpData) {
+            const sendNextOtp = await oneMinuteExpiry(oldOtpData.timeStamps)
+            if (!sendNextOtp) {
+                return res.status(400).json({
+                    success: false,
+                    user_verify_resend_otp_notExist_msg: 'Please try after some time'
+                })
+            }
+        }
+
+        let cDate = new Date()
+        await otp_data.findOneAndUpdate(
+            { mobile_number },
+            {
+                otp,
+                timeStamps: new Date(cDate.getTime())
+            },
+            { upsert: true },
+            { new: true }
+        )
         await smsOTP_send(mobile_number, response, msg)
     } catch (error) {
         console.log(error)

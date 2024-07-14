@@ -9,7 +9,7 @@ const sendOTP = async (to, message, response) => {
         client.messages.create({
             body: message,
             to: mobile_number,
-            from: process.env.FROM_MOBILE_NUMBER
+            from: '+12244124726'
         })
             .then(verification => console.log(verification.sid));
         response()
